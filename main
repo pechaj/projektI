@@ -1,0 +1,128 @@
+from matplotlib import pyplot as plt
+import numpy as np
+import pandas as pd
+from math import sin, pi
+
+plt.style.use('seaborn-whitegrid')
+plt.figure(figsize=(10, 6))
+
+
+class meaSignal:
+
+    fig, axes = plt.subplots(2, 2)
+
+    def __init__(self, length):
+        self.length = length
+
+    x = np.arange(0, 1320, 20).tolist()  # cas
+    y = [0, 2.3, 2, -6, -12, -20, -30, -27, -20, -15, -6, 0, 2.5, 3.5, 2, 0] + [0] * 50  # amplituda
+
+    xC = np.arange(0, 1320, 20).tolist()
+    yC = [0, 2.3, 2, -6, -12, -20, -30, -27, -20, -15, -6, 0, 2.5, 3.5, 2, 0] + [0] * 50
+
+    def signalgeneration(meaSignal):
+
+        counter = 0
+
+        while counter < meaSignal.length:
+
+            time = np.random.randint(1, 5) * 20
+
+            x = 10
+            if (1300*(counter+1) + time) < (time + meaSignal.x[65*counter]):
+                time = np.random.randint(1, x) * 20
+                x *= 10
+
+            meaSignal.x.extend(np.add(meaSignal.xC, 1300*(counter + 1) + time))
+            meaSignal.y.extend(meaSignal.yC)
+
+            counter += 1
+
+        plt.figure(2)
+        meaSignal.axes[0, 0].plot(meaSignal.x, meaSignal.y, '-')
+        meaSignal.axes[0, 0].margins(x=-0.25, y=0.1)
+
+    def plot(self):
+
+        thresholdx = [0, meaSignal.x[-1]]
+        thresholdy = [-1, -1]
+        spikedetec = np.where(meaSignal.y < -28, True, False)
+        spikecount = 0
+        minsignal = 0
+
+        for i in meaSignal.y:
+            if i < -30:
+                spikecount += 1
+            if i < minsignal:
+                minsignal = i
+
+        df = pd.DataFrame(zip(meaSignal.x, meaSignal.y), columns=['X', 'Y'])
+        df.to_csv("data.csv", index=False)
+
+        plt.figure(2)
+        plt.plot(thresholdx, thresholdy, 'r', label="Threshold")
+
+        plt.figure(1)
+        plt.plot(meaSignal.x, meaSignal.y, '-b^', label="Signal", markevery=spikedetec, mfc='red', mec='black')
+
+        print("Detekovanych spiku: " + str(spikecount))  # vypis detekovanych spiku
+        print("Delka signalu: " + str(meaSignal.x[-1]) + " ms")
+        print("Nejnizsi amplituda v signalu: " + str(round(minsignal, 2)) + " uV")
+        print("Pocet spiku za sekundu: " + str(round(spikecount/(meaSignal.x[-1]/1000), 2)))
+
+    def moving_average_filter(self, window_size):
+
+        spikecount = 0
+
+        numbers_series = pd.Series(meaSignal.y)
+        windows = numbers_series.rolling(window_size)
+        moving_averages = windows.mean()
+
+        moving_averages_list = moving_averages.tolist()
+        without_nans = moving_averages_list[window_size - window_size:]
+
+        df = pd.DataFrame(zip(meaSignal.x, without_nans), columns=['X', 'Y'])
+        df.to_csv("filteredData.csv", index=False)
+
+        for i in without_nans:
+            if i < -15:
+                spikecount += 1
+
+        print("Detekovanych spiku ve filtrovanem signalu: " + str(spikecount))
+
+        plt.figure(1)
+        plt.plot(meaSignal.x, without_nans, 'r', label="Filtered signal")
+
+    def add_white_noise(self, amplitude):
+        noise = np.random.normal(0, amplitude, len(meaSignal.x))
+
+        plt.figure(2)
+        meaSignal.axes[0, 1].plot(meaSignal.x, noise, 'b')
+        meaSignal.axes[0, 1].margins(x=-0.25, y=-0.1)
+
+        meaSignal.y += noise
+
+    def add_frequency(self, frequency, amplitude):
+        samples = np.linspace(0, meaSignal.x[725], len(meaSignal.x))
+
+        sinesignal = amplitude * np.sin(2 * np.pi * frequency * samples)
+
+        plt.figure(2)
+        meaSignal.axes[1, 0].plot(meaSignal.x, sinesignal, 'g')
+        meaSignal.axes[1, 0].margins(x=-0.4, y=0.2)
+
+        meaSignal.y += sinesignal
+
+
+s = meaSignal(20)
+s.signalgeneration()
+s.add_white_noise(6)
+s.add_frequency(50, 5)
+s.plot()
+s.moving_average_filter(window_size=10)
+
+plt.title("Graf signálu")
+plt.xlabel("Time(ms)")
+plt.ylabel("Signal(uV)")
+plt.legend()
+plt.show()
